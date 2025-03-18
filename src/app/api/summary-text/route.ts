@@ -19,9 +19,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ summary });
   } catch (error) {
     console.error("Error in text summary API:", error);
-    return NextResponse.json(
-      { error: "Failed to summarize content" },
-      { status: 500 }
-    );
+
+    // More detailed error information
+    let errorMessage = "Failed to summarize content";
+    if (error instanceof Error) {
+      errorMessage = `Error: ${error.message}`;
+      console.error("Error stack:", error.stack);
+    } else if (typeof error === "string") {
+      errorMessage = `Error: ${error}`;
+    } else if (error && typeof error === "object") {
+      try {
+        errorMessage = `Error object: ${JSON.stringify(error)}`;
+      } catch {
+        errorMessage = "Unknown error object that cannot be stringified";
+      }
+    }
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

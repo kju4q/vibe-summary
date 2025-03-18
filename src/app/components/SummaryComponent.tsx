@@ -7,46 +7,30 @@ const SummaryComponent = () => {
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showFarcasterNote, setShowFarcasterNote] = useState(false);
-  const [showTwitterNote, setShowTwitterNote] = useState(false);
 
-  // Helper to detect URL types
-  const getUrlType = (url: string): string => {
-    if (url.includes("warpcast.com") || url.includes("farcaster.xyz")) {
-      return "Farcaster";
-    } else if (url.includes("twitter.com") || url.includes("x.com")) {
-      return "Twitter";
-    } else {
-      return "website";
-    }
-  };
-
-  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let newUrl = e.target.value.trim();
+  const sanitizeUrl = (url: string): string => {
+    let sanitized = url.trim();
 
     // Remove @ symbol if it's at the beginning of the URL
-    if (newUrl.startsWith("@")) {
-      newUrl = newUrl.substring(1);
+    if (sanitized.startsWith("@")) {
+      sanitized = sanitized.substring(1);
     }
 
     // Make sure URL has proper https:// prefix
     if (
-      newUrl &&
-      !newUrl.startsWith("http://") &&
-      !newUrl.startsWith("https://")
+      sanitized &&
+      !sanitized.startsWith("http://") &&
+      !sanitized.startsWith("https://")
     ) {
-      newUrl = "https://" + newUrl;
+      sanitized = "https://" + sanitized;
     }
 
+    return sanitized;
+  };
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUrl = sanitizeUrl(e.target.value);
     setUrl(newUrl);
-    // Show note if it's a Farcaster URL
-    setShowFarcasterNote(
-      newUrl.includes("warpcast.com") || newUrl.includes("farcaster.xyz")
-    );
-    // Show Twitter note if it's a Twitter URL
-    setShowTwitterNote(
-      newUrl.includes("twitter.com") || newUrl.includes("x.com")
-    );
   };
 
   const handleSummarize = async () => {
@@ -64,8 +48,7 @@ const SummaryComponent = () => {
     }
 
     try {
-      const urlType = getUrlType(url);
-      console.log(`Processing ${urlType} URL: ${url}`);
+      console.log(`Processing URL: ${url}`);
 
       const response = await fetch("/api/summarize", {
         method: "POST",
@@ -75,29 +58,25 @@ const SummaryComponent = () => {
         body: JSON.stringify({ url }),
       });
 
+      // Handle non-JSON responses
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error(`Received non-JSON response: ${await response.text()}`);
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
-        let errorMessage = data.error || `Failed to get summary`;
-
-        // Provide more helpful error messages based on URL type
-        if (
-          urlType === "Farcaster" &&
-          errorMessage.includes("Failed to extract content")
-        ) {
-          errorMessage =
-            "Unable to extract Farcaster content. This might be due to the post being private or requiring authentication. Please try the Text Summarizer tab instead and paste the post content directly.";
-        }
-
-        throw new Error(errorMessage);
+        throw new Error(data.error || `Failed to get summary`);
       }
 
       setSummary(data.summary);
     } catch (error) {
       console.error("Error fetching summary:", error);
-      setError(
-        error instanceof Error ? error.message : "Failed to summarize content"
-      );
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to summarize content";
+      console.log("Detailed error:", errorMsg);
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -110,25 +89,12 @@ const SummaryComponent = () => {
         captures the essence of the content.
       </p>
 
-      {showFarcasterNote && (
-        <div className="p-3 bg-yellow-50 border border-yellow-100 rounded-lg text-yellow-700 text-sm">
-          <p>
-            <strong>Note:</strong> Farcaster URLs may be difficult to scrape. If
-            summarization fails, please use the Text Summarizer tab and paste
-            the content directly.
-          </p>
-        </div>
-      )}
-
-      {showTwitterNote && (
-        <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-700 text-sm">
-          <p>
-            <strong>Note:</strong> When using Twitter/X links, make sure to use
-            the full URL. If extraction fails, you can copy the tweet text
-            directly to the Text Summarizer.
-          </p>
-        </div>
-      )}
+      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-700">
+        <p>
+          <strong>Note:</strong> If a URL doesn't work, you can always use the
+          Text Summarizer tab to paste the content directly.
+        </p>
+      </div>
 
       <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
@@ -136,16 +102,12 @@ const SummaryComponent = () => {
             type="url"
             value={url}
             onChange={handleUrlChange}
-            placeholder="Paste article URL here..."
+            placeholder="Paste any URL here..."
             className="w-full px-4 py-3.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 bg-gray-50 shadow-sm"
           />
           {url && (
             <button
-              onClick={() => {
-                setUrl("");
-                setShowFarcasterNote(false);
-                setShowTwitterNote(false);
-              }}
+              onClick={() => setUrl("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               aria-label="Clear input"
             >

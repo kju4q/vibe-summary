@@ -25,6 +25,15 @@ const TextSummaryComponent = () => {
         body: JSON.stringify({ content, contentType }),
       });
 
+      // Handle non-JSON responses
+      const responseContentType = response.headers.get("content-type");
+      if (
+        !responseContentType ||
+        !responseContentType.includes("application/json")
+      ) {
+        throw new Error(`Received non-JSON response: ${await response.text()}`);
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -34,9 +43,10 @@ const TextSummaryComponent = () => {
       setSummary(data.summary);
     } catch (error) {
       console.error("Error fetching summary:", error);
-      setError(
-        error instanceof Error ? error.message : "Failed to summarize content"
-      );
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to summarize content";
+      console.log("Detailed error:", errorMsg);
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
