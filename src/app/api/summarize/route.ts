@@ -4,6 +4,9 @@ import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import { generateVibeSummary } from "../../utils/summarize";
 
+// Configure the route to have a longer timeout
+export const maxDuration = 30; // 30 seconds timeout for Edge Functions
+
 // Identify content type based on URL
 const identifyContentType = (
   url: string
@@ -61,7 +64,7 @@ const extractContentFromUrl = async (url: string): Promise<string> => {
         "Cache-Control": "no-cache",
         Pragma: "no-cache",
       },
-      timeout: 20000, // Increased timeout for slower sites
+      timeout: 10000, // Reduced timeout to prevent serverless function timeout
       maxRedirects: 5, // Handle redirects
     });
 
@@ -363,9 +366,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Set a safety timeout for the entire operation to prevent function timeouts
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Content extraction timed out")), 25000)
+    );
+
     try {
-      // Generic content extraction that works for all URLs
-      const extractedContent = await extractContentFromUrl(url);
+      // Race the extraction against the timeout
+      const extractedContent = (await Promise.race([
+        extractContentFromUrl(url),
+        timeoutPromise,
+      ])) as string;
 
       if (!extractedContent || extractedContent.trim().length < 50) {
         console.log("Extracted content is too short or empty");
@@ -390,8 +401,16 @@ export async function POST(request: NextRequest) {
 
       let errorMessage = "Failed to extract content";
 
+      // Check if it's a timeout
+      if (
+        extractError.message?.includes("timed out") ||
+        extractError.code === "ECONNABORTED"
+      ) {
+        errorMessage =
+          "The request timed out. This URL may be too slow to process in the available time window.";
+      }
       // Provide more specific error messages
-      if (extractError.message?.includes("timeout")) {
+      else if (extractError.message?.includes("timeout")) {
         errorMessage =
           "The request timed out. The website might be too slow to respond or blocking our access.";
       } else if (extractError.message?.includes("403")) {
