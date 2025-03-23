@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import SocialLinks from "./components/SocialLinks";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,12 +36,15 @@ export default function RootLayout({
           <main className="flex-grow py-12 px-4 relative">{children}</main>
           <footer className="py-6 text-center text-sm text-gray-500 relative">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <p>
-                © {new Date().getFullYear()} Vibe Check | AI-Powered Summaries
-              </p>
-              <p className="mt-2 text-xs text-gray-400">
-                Instant one-sentence summaries for any content
-              </p>
+              <div className="flex flex-col items-center justify-center">
+                <SocialLinks />
+                <p className="mt-4">
+                  © {new Date().getFullYear()} Vibe Check | AI-Powered Summaries
+                </p>
+                <p className="mt-2 text-xs text-gray-400">
+                  Instant one-sentence summaries for any content
+                </p>
+              </div>
             </div>
           </footer>
         </div>
